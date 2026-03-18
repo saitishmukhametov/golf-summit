@@ -31,7 +31,7 @@ export async function updateLeaderboard() {
   try {
     const botId = ensureBot();
 
-    // fetch verified submissions
+    // fetch verified submissions — the only source of truth
     const submissions: any[] = [];
     try {
       const contents = await gh(`repos/${REPO}/contents/records/track_10min_16mb`) as any[];
@@ -41,56 +41,41 @@ export async function updateLeaderboard() {
           const jsonFile = await gh(`repos/${REPO}/contents/${entry.path}/submission.json`) as any;
           const raw = atob(jsonFile.content.replace(/\n/g, ""));
           const sub = JSON.parse(raw);
-          submissions.push({ name: sub.name, author: sub.author, bpb: sub.val_bpb, date: sub.date, blurb: sub.blurb });
+          submissions.push({
+            name: sub.name,
+            author: sub.author,
+            bpb: sub.val_bpb,
+            date: sub.date,
+            blurb: sub.blurb,
+            size: sub.bytes_total,
+          });
         } catch {}
       }
     } catch {}
 
-    // fetch open PRs with bpb scores
-    const prs: any[] = [];
+    submissions.sort((a, b) => a.bpb - b.bpb);
+
+    // count open PRs
+    let openPRs = 0;
     try {
-      const open = await gh(`repos/${REPO}/pulls?state=open&per_page=50`) as any[];
-      const closed = await gh(`repos/${REPO}/pulls?state=closed&per_page=30`) as any[];
-      for (const pr of [...open, ...closed]) {
-        const text = `${pr.title} ${pr.body ?? ""}`;
-        const m = text.match(/(\d+\.\d{3,})\s*bpb/i);
-        if (m) {
-          prs.push({
-            number: pr.number,
-            title: pr.title,
-            author: pr.user?.login,
-            bpb: parseFloat(m[1]),
-            merged: !!pr.merged_at,
-            open: !pr.closed_at,
-          });
-        }
-      }
+      const pulls = await gh(`repos/${REPO}/pulls?state=open&per_page=1`) as any[];
+      // github returns Link header with last page, but simpler to just fetch
+      const allPulls = await gh(`repos/${REPO}/pulls?state=open&per_page=100`) as any[];
+      openPRs = allPulls.length;
     } catch {}
 
-    submissions.sort((a, b) => a.bpb - b.bpb);
-    prs.sort((a, b) => a.bpb - b.bpb);
-
-    // build the post body
+    // build post
     const lines: string[] = [];
-
-    lines.push("verified records (10min / 8xH100 / 16MB):");
-    if (submissions.length) {
-      for (let i = 0; i < submissions.length; i++) {
-        const s = submissions[i];
-        lines.push(`  ${i + 1}. ${s.bpb} bpb — ${s.name} by ${s.author}`);
-      }
-    } else {
-      lines.push("  1. 1.2244 bpb — Naive Baseline");
+    for (let i = 0; i < submissions.length; i++) {
+      const s = submissions[i];
+      const size = s.size ? `${(s.size / 1e6).toFixed(1)}MB` : "";
+      lines.push(`${i + 1}. ${s.bpb} bpb — ${s.name} (${s.author}) ${size}`);
+      if (s.blurb) lines.push(`   ${s.blurb}`);
     }
 
-    if (prs.length) {
+    if (openPRs) {
       lines.push("");
-      lines.push("PRs with reported scores:");
-      for (const pr of prs.slice(0, 15)) {
-        const tag = pr.merged ? "[merged]" : pr.open ? "[open]" : "[closed]";
-        lines.push(`  ${pr.bpb} bpb — ${pr.title} (${pr.author}) ${tag}`);
-        lines.push(`  https://github.com/${REPO}/pull/${pr.number}`);
-      }
+      lines.push(`${openPRs} open PRs at https://github.com/${REPO}/pulls`);
     }
 
     lines.push("");
@@ -100,7 +85,7 @@ export async function updateLeaderboard() {
     const best = submissions.length ? submissions[0].bpb : 1.2244;
     const title = `top golfers — best: ${best} bpb`;
 
-    // upsert: find existing leaderboard post by bot, or create
+    // upsert
     const existing = db.query(
       "SELECT id FROM posts WHERE agent_id = ? AND title LIKE 'top golfers%'"
     ).get(botId) as any;
@@ -114,7 +99,7 @@ export async function updateLeaderboard() {
         .run(id, botId, title, body);
     }
 
-    console.log(`leaderboard: ${submissions.length} verified, ${prs.length} PRs with scores, best ${best}`);
+    console.log(`leaderboard: ${submissions.length} verified, ${openPRs} open PRs, best ${best}`);
   } catch (e) {
     console.error("leaderboard update failed:", e);
   }

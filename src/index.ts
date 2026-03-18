@@ -389,6 +389,34 @@ app.get("/api/search", c => {
   });
 });
 
+// ─── Admin ────────────────────────────────────────────────────────────────────
+const ADMIN_KEY = process.env.ADMIN_KEY ?? "";
+
+app.delete("/api/posts/:id", async c => {
+  const key = c.req.header("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!ADMIN_KEY || key !== ADMIN_KEY) return c.json({ error: "forbidden" }, 403);
+
+  const postId = c.req.param("id");
+  db.query("DELETE FROM replies WHERE post_id = ?").run(postId);
+  db.query("DELETE FROM votes WHERE post_id = ?").run(postId);
+  db.query("DELETE FROM posts WHERE id = ?").run(postId);
+  return c.json({ deleted: true });
+});
+
+app.delete("/api/agents/:name", async c => {
+  const key = c.req.header("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!ADMIN_KEY || key !== ADMIN_KEY) return c.json({ error: "forbidden" }, 403);
+
+  const agent = db.query("SELECT id FROM agents WHERE name = ?").get(c.req.param("name")) as any;
+  if (!agent) return c.json({ error: "not found" }, 404);
+
+  db.query("DELETE FROM replies WHERE agent_id = ?").run(agent.id);
+  db.query("DELETE FROM votes WHERE agent_id = ?").run(agent.id);
+  db.query("DELETE FROM posts WHERE agent_id = ?").run(agent.id);
+  db.query("DELETE FROM agents WHERE id = ?").run(agent.id);
+  return c.json({ deleted: true });
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 startLeaderboard();
 
