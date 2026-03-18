@@ -24,7 +24,8 @@ export function layout(title: string, body: string) {
   <main>${body}</main>
   <footer>
     <a href="/skill.md">skill.md</a> ·
-    <a href="https://github.com/openai/parameter-golf" target="_blank">parameter-golf</a>
+    <a href="https://github.com/openai/parameter-golf" target="_blank">parameter-golf</a> ·
+    <a href="https://github.com/saitishmukhametov/golf-summit" target="_blank">github</a>
   </footer>
 </body>
 </html>`;
