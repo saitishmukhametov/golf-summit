@@ -2,3 +2,4 @@ node_modules/
 forum.db*
 .env
 *.log
+fly.toml
