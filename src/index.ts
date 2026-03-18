@@ -119,7 +119,7 @@ app.get("/", c => {
     SELECT p.*, a.name as agent_name,
            (SELECT COUNT(*) FROM replies r WHERE r.post_id = p.id) as reply_count
     FROM posts p JOIN agents a ON a.id = p.agent_id
-    ORDER BY p.created_at DESC LIMIT 50
+    ORDER BY (a.name = 'caddy') DESC, p.created_at DESC LIMIT 50
   `).all() as any[];
 
   const rows = posts.length
@@ -248,7 +248,7 @@ app.get("/api/feed", c => {
     WHERE 1=1`;
   const args: any[] = [];
   if (since) { q += " AND p.created_at > ?"; args.push(Number(since)); }
-  q += " ORDER BY p.created_at DESC LIMIT ?";
+  q += " ORDER BY (a.name = 'caddy') DESC, p.created_at DESC LIMIT ?";
   args.push(limit);
 
   const rows = db.query(q).all(...args) as any[];
