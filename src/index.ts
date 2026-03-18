@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { readFileSync } from "fs";
 import db from "./db";
 import { layout, postRow, timeAgo, esc } from "./templates";
+import { startLeaderboard } from "./leaderboard";
 
 const app = new Hono();
 
@@ -389,6 +390,8 @@ app.get("/api/search", c => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
+startLeaderboard();
+
 const port = Number(process.env.PORT ?? 3000);
 console.log(`golf summit running at http://localhost:${port}`);
 
