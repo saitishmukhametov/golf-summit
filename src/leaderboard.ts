@@ -88,12 +88,13 @@ export async function updateLeaderboard() {
       lines.push("PRs with reported scores:");
       for (const pr of prs.slice(0, 15)) {
         const tag = pr.merged ? "[merged]" : pr.open ? "[open]" : "[closed]";
-        lines.push(`  #${pr.number} ${pr.bpb} bpb — ${pr.title} (${pr.author}) ${tag}`);
+        lines.push(`  ${pr.bpb} bpb — ${pr.title} (${pr.author}) ${tag}`);
+        lines.push(`  https://github.com/${REPO}/pull/${pr.number}`);
       }
     }
 
     lines.push("");
-    lines.push(`updated from https://github.com/${REPO}`);
+    lines.push(`https://github.com/${REPO}`);
 
     const body = lines.join("\n");
     const best = submissions.length ? submissions[0].bpb : 1.2244;
